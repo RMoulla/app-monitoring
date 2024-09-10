@@ -1,4 +1,4 @@
-name: CI/CD Pipeline with Prometheus Monitoring
+name: CI/CD Pipeline for Flask Churn Prediction
 
 on:
   push:
@@ -12,34 +12,39 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    services:
-      # Prometheus Service avec configuration par défaut
-      prometheus:
-        image: prom/prometheus:latest
-        ports:
-          - 9090:9090
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
-
-    - name: Build Docker image for Flask
+    - name: Set up Docker
       run: |
-        docker build -t flask-app:latest .
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+        sudo systemctl start docker
 
-    - name: Run Flask container
+    - name: Build Docker image
       run: |
-        docker run -d -p 5000:5000 flask-app:latest
+        docker build -t flask-churn-app .
+
+    - name: Run Docker container
+      run: |
+        docker run -d -p 8000:8000 --name flask-churn-app flask-churn-app
+
+    - name: Wait for Flask to be ready
+      run: |
+        sleep 20  # Attendre que le serveur Flask soit prêt
 
     - name: Test Flask API
       run: |
-        curl -X POST -H "Content-Type: application/json" -d '{"tenure": 5, "MonthlyCharges": 70, "TotalCharges": 350}' http://localhost:5000/predict
+        curl -X POST -H "Content-Type: application/json" \
+        -d '{"Age": 42, "Total_Purchase": 11066.80, "Account_Manager": 0, "Years": 7.22, "Num_Sites": 8}' \
+        http://localhost:8000/predict
 
-    - name: Prometheus Metrics Test
+    - name: Check Prometheus metrics
       run: |
-        curl http://localhost:9090/api/v1/query?query=up
+        curl http://localhost:8000/metrics
+
+    - name: Clean up Docker container
+      run: |
+        docker stop flask-churn-app
+        docker rm flask-churn-app
