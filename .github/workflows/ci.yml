@@ -19,12 +19,6 @@ jobs:
         ports:
           - 9090:9090
 
-      # Application Flask (remplacez par votre image Flask)
-      flask-app:
-        image: your-docker-flask-image:latest
-        ports:
-          - 5000:5000
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -34,14 +28,13 @@ jobs:
       with:
         python-version: 3.8
 
-    - name: Install dependencies
+    - name: Build Docker image for Flask
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        docker build -t flask-app:latest .
 
-    - name: Build Docker image
+    - name: Run Flask container
       run: |
-        docker build -t your-docker-flask-image:latest .
+        docker run -d -p 5000:5000 flask-app:latest
 
     - name: Test Flask API
       run: |
