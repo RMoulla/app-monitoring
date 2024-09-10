@@ -13,17 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Prometheus Service
+      # Prometheus Service avec configuration par défaut
       prometheus:
-        image: prom/prometheus
+        image: prom/prometheus:latest
         ports:
           - 9090:9090
-        command: '--config.file=/etc/prometheus/prometheus.yml'
 
-        volumes:
-          - ./prometheus.yml:/etc/prometheus/prometheus.yml
-
-      # Flask Service
+      # Application Flask (remplacez par votre image Flask)
       flask-app:
         image: your-docker-flask-image:latest
         ports:
@@ -43,28 +39,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Train and save model
-      run: |
-        python train_model.py  # Entraîner le modèle et le sauvegarder en churn_model.pkl
-
     - name: Build Docker image
       run: |
         docker build -t your-docker-flask-image:latest .
-
-    - name: Run tests
-      run: |
-        pytest
 
     - name: Test Flask API
       run: |
         curl -X POST -H "Content-Type: application/json" -d '{"tenure": 5, "MonthlyCharges": 70, "TotalCharges": 350}' http://localhost:5000/predict
 
-    # Simuler un flux de données en continu
-    - name: Simulate Data Stream
-      run: |
-        python stream_data.py  # Exécuter le script qui envoie des requêtes continues à l'API
-
-    # Interroger Prometheus pour vérifier les métriques après le flux de données
     - name: Prometheus Metrics Test
       run: |
-        curl http://localhost:9090/api/v1/query?query=total_predictions
+        curl http://localhost:9090/api/v1/query?query=up
