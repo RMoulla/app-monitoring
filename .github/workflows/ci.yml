@@ -10,6 +10,7 @@ env:
   DOCKER_IMAGE: flask-churn-app
   DOCKER_CONTAINER: flask-churn-app
   FLASK_PORT: 8000
+  PROMETHEUS_PORT: 9090
 
 jobs:
   build-and-test:
@@ -38,6 +39,11 @@ jobs:
         run: |
           docker run -d -p ${{ env.FLASK_PORT }}:${{ env.FLASK_PORT }} --name ${{ env.DOCKER_CONTAINER }} ${{ env.DOCKER_IMAGE }}:latest
 
+      - name: Check Docker logs
+        run: |
+          sleep 5  # Attendre un peu que le conteneur démarre
+          docker logs ${{ env.DOCKER_CONTAINER }}
+
       - name: Wait for Flask to be ready
         run: |
           timeout 60s bash -c 'until curl -s http://localhost:${{ env.FLASK_PORT }}/metrics > /dev/null; do sleep 1; done'
@@ -52,7 +58,19 @@ jobs:
         run: |
           curl http://localhost:${{ env.FLASK_PORT }}/metrics
 
-      - name: Clean up Docker container
+      - name: Start Prometheus
         run: |
-          docker stop ${{ env.DOCKER_CONTAINER }}
-          docker rm ${{ env.DOCKER_CONTAINER }}
+          docker run -d --name prometheus \
+          -p ${{ env.PROMETHEUS_PORT }}:${{ env.PROMETHEUS_PORT }} \
+          -v ${{ github.workspace }}/prometheus.yml:/etc/prometheus/prometheus.yml \
+          prom/prometheus
+
+      - name: Verify Prometheus is scraping metrics
+        run: |
+          sleep 30  # Wait for Prometheus to scrape metrics
+          curl "http://localhost:${{ env.PROMETHEUS_PORT }}/api/v1/query?query=flask_http_request_total"
+
+      - name: Clean up Docker containers
+        run: |
+          docker stop ${{ env.DOCKER_CONTAINER }} prometheus
+          docker rm ${{ env.DOCKER_CONTAINER }} prometheus
